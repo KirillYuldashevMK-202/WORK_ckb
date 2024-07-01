@@ -4,8 +4,6 @@
 #include <iomanip>
 
 
-
-
 class Parsing {
 private:
 	std::ifstream PEfile;
