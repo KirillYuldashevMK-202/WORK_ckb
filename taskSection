@@ -1,0 +1,38 @@
+#include <iostream>
+#include <string>
+#include <cstring>
+
+#pragma section(".mdata", read, write)
+__declspec(allocate(".mdata")) char mdata[154] = "Test1\nTest2\nTest3\nTest4\nTest5\nTest6\nTest7\nTest8\nTest9\nTest10\n<TEMPLATE>Msgbox str\n1Test\n2Test\n3Test\n4Test\n5Test\n6Test\n7Test\n8Test\n9Test\n10Test\0";
+
+void replaceStr(char* Strtmp, const std::string& Strreplace) {
+    char* pos = strstr(Strtmp, "<TEMPLATE>");
+    if (pos != nullptr) {
+        std::string beforetmp(Strtmp, pos + strlen("<TEMPLATE>"));
+        std::string aftertmp(pos + strlen("<TEMPLATE>") + Strreplace.size());
+        std::string res = beforetmp + Strreplace + aftertmp;
+        strcpy_s(Strtmp, strlen(res.c_str()) + 1, res.c_str());
+    }
+}
+
+int main() {
+    std::string Replace = "Hello ckb!";
+
+    std::cout << "Original data:" << std::endl;
+    char* ptr = mdata;
+    while (*ptr != '\0') {
+        std::cout << ptr << std::endl;
+        ptr += strlen(ptr) + 1;
+    }
+
+    replaceStr(mdata, Replace);
+
+    std::cout << "Modified data:" << std::endl;
+    ptr = mdata;
+    while (*ptr != '\0') {
+        std::cout << ptr << std::endl;
+        ptr += strlen(ptr) + 1;
+    }
+
+    return 0;
+}
