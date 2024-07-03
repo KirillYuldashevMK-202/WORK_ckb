@@ -105,18 +105,7 @@ public:
 		}
 	}
 
-	void replaceStr(std::vector<char>& buffer, const std::string& strReplace) {
-		const std::string tmpStr = "<TEMPLATE>";
-		std::string strTmp(buffer.begin(), buffer.end());
-		size_t pos = strTmp.find(tmpStr);
-		std::string beforetmp = strTmp.substr(0, pos + tmpStr.length());
-		size_t nullPos = strTmp.find('\0', pos + tmpStr.length());
-		std::string aftertmp = strTmp.substr(nullPos + 1);
-		strTmp = beforetmp + strReplace + aftertmp;
-		buffer.assign(strTmp.begin(), strTmp.end());
-	}
-
-	void SearchTmp(const char* nameSec) {
+	void ChangeStringDataByTemplate(const char* nameSec, const std::string tmpStr, const std::string& Replace) {
 		DWORD firstSection = PEheader.e_lfanew + PEntheaders.FileHeader.SizeOfOptionalHeader + sizeof(IMAGE_FILE_HEADER) + sizeof(DWORD);
 
 		PEfile.seekg(firstSection);
@@ -147,7 +136,6 @@ public:
 		PEfile.seekg(SearchSection);
 		std::vector<char> buffer(sectionSize);
 		PEfile.read(buffer.data(), buffer.size());
-		std::string Replace = "Hello ckb!";
 		replaceStr(buffer, Replace);
 		PEfile.seekg(SearchSection);
 		PEfile.write(buffer.data(), buffer.size());
@@ -163,6 +151,17 @@ public:
 		MessageBoxA(NULL, message.c_str(), "STR", MB_OK);
 	}
 
+	void replaceStr(std::vector<char>& buffer, const std::string& strReplace) {
+		const std::string tmpStr = "<TEMPLATE>";
+		std::string strTmp(buffer.begin(), buffer.end());
+		size_t pos = strTmp.find(tmpStr);
+		std::string beforetmp = strTmp.substr(0, pos + tmpStr.length());
+		size_t nullPos = strTmp.find('\0', pos + tmpStr.length());
+		std::string aftertmp = strTmp.substr(nullPos + 1);
+		strTmp = beforetmp + strReplace + aftertmp;
+		buffer.assign(strTmp.begin(), strTmp.end());
+	}
+
 	~Parsing() {
 		this->PEfile.close();
 	}
@@ -172,6 +171,6 @@ int main() {
 	Parsing P("WORK_section.exe");
 	P.CheckPEfile();
 	P.PrintOptional();
-	P.SearchTmp(".mdata");
+	P.ChangeStringDataByTemplate(".mdata", "<Template>", "Hello 123456");
 	return 0;
 }
