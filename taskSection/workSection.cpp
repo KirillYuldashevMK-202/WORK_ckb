@@ -1,21 +1,73 @@
 #include <iostream>
-#include <string>
-#include <cstring>
+#include <fstream>
 #include <Windows.h>
+#include <iomanip>
+#include <string>
+#include <winnt.h>
+#include <vector>
 
-#pragma section(".mdata", read, write)
-__declspec(allocate(".mdata")) char mdata[164] = "Test1\0\nTest2\0\nTest3\0\nTest4\0\nTest5\0\nTest6\0\nTest7\0\nTest8\0\nTest9\0\nTest10\0\n<TEMPLATE>Msgbox str\0\n1Test\0\n2Test\0\n3Test\0\n4Test\0\n5Test\0\n6Test\0\n7Test\0\n8Test\0\n9Test\0\n10Test\0";
+std::string replaceStr(std::vector<char>& buffer) {
+	const std::string tmpStr = "<TEMPLATE>";
+	std::string strTmp(buffer.begin(), buffer.end());
+	size_t pos = strTmp.find(tmpStr);
+	size_t nullPos = strTmp.find("\0", pos);
+	std::string stroka = strTmp.substr(pos + tmpStr.length(), nullPos);
+	return stroka;
+}
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    std::cout << "Original data:" << std::endl;
-    char* ptr = mdata;
-    std::string msg;
-    while (*ptr != '\0') {
-        std::cout << ptr << std::endl;
-        msg += ptr;
-        msg += "\n";
-        ptr += strlen(ptr) + 1;
-    }
-    MessageBoxA(NULL, msg.c_str(), "STR", MB_OK);
+void PrintMsg(const char* nameSec) {
+	std::fstream PEfile;
+	IMAGE_DOS_HEADER PEheader;
+	IMAGE_NT_HEADERS PEntheaders;
+	PEfile.open("../Debug/WORK_section.exe");
+	if (!PEfile.is_open()) {
+		std::cout << "Error: Open PEfile" << std::endl;
+		exit(1);
+	}
+	PEfile.read((char*)&PEheader, sizeof(IMAGE_DOS_HEADER));
+
+	PEfile.seekg(PEheader.e_lfanew);
+	PEfile.read((char*)&PEntheaders, sizeof(IMAGE_DOS_HEADER));
+	if (PEntheaders.Signature != 'EP') {
+		std::cout << "IMAGE_NT_HEADERS signature is incorrect" << std::endl;
+		exit(1);
+	}
+	DWORD firstSection = PEheader.e_lfanew + PEntheaders.FileHeader.SizeOfOptionalHeader + sizeof(IMAGE_FILE_HEADER) + sizeof(DWORD);
+
+	PEfile.seekg(firstSection);
+	if (PEfile.bad() || PEfile.fail()) {
+		std::cout << "Error: search sections" << std::endl;
+		return;
+	}
+	DWORD SearchSection = 0;
+	DWORD sectionSize = 0;
+	for (int i = 0; i < PEntheaders.FileHeader.NumberOfSections; i++) {
+		IMAGE_SECTION_HEADER nameSection;
+		PEfile.read((char*)(&nameSection), sizeof(IMAGE_SECTION_HEADER));
+		if (!strcmp(nameSec, (char*)nameSection.Name)) {
+			std::cout << "Search section OK" << std::endl;
+			SearchSection = nameSection.PointerToRawData;
+			sectionSize = nameSection.SizeOfRawData;
+			break;
+		}
+		else {
+			if (i == PEntheaders.FileHeader.NumberOfSections - 1) {
+				std::cout << "Error: search section" << std::endl;
+				exit(1);
+			}
+			continue;
+		}
+	}
+
+	PEfile.seekg(SearchSection);
+	std::vector<char> buffer(sectionSize);
+	PEfile.read(buffer.data(), buffer.size());
+	PEfile.seekg(SearchSection);
+	std::string message = replaceStr(buffer);
+	MessageBoxA(NULL, message.c_str(), "STR", MB_OK);
+}
+
+int main() {
+	PrintMsg(".mdata");
     return 0;
 }
