@@ -14,7 +14,7 @@ private:
 
 public:
 	Parsing(const char* nameFile) {
-		this->PEfile.open(nameFile);
+		this->PEfile.open("../../WORK_section/Debug/WORK_section.exe" );
 		std::cout << "PE file : " << nameFile << std::endl;
 	}
 
@@ -158,9 +158,11 @@ public:
 		std::string beforetmp = strTmp.substr(0, pos + tmpStr.length());
 		size_t nullPos = strTmp.find('\0', pos + tmpStr.length());
 		std::string aftertmp = strTmp.substr(nullPos + 1);
-		strTmp = beforetmp + strReplace + aftertmp;
+		strTmp = beforetmp + strReplace + '\0' + aftertmp;
 		buffer.assign(strTmp.begin(), strTmp.end());
 	}
+
+	void searchStr(std::vector<char>& buffer, const std::string& strReplace) {}
 
 	~Parsing() {
 		this->PEfile.close();
@@ -171,6 +173,6 @@ int main() {
 	Parsing P("WORK_section.exe");
 	P.CheckPEfile();
 	P.PrintOptional();
-	P.ChangeStringDataByTemplate(".mdata", "<Template>", "Hello 123456");
+	P.ChangeStringDataByTemplate(".mdata", "<Template>", "Hello ckb!!!");
 	return 0;
 }
