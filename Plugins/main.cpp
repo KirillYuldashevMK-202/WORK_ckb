@@ -18,6 +18,6 @@ int main() {
 
 	MsgPlugin->InitPlugin();
 	MsgPlugin->WorkPlugin();
-
+	DeletePlugin(MsgPlugin);
 	return 0;
 }
