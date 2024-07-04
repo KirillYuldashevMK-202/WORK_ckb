@@ -4,45 +4,33 @@
 #include <fstream>
 #include <vector>
 
-typedef InterfacePlugin* (*CreatePluginFunc)();
-typedef void (*DeletePluginFunc)(InterfacePlugin*);
+typedef InterfacePlugin* (__cdecl* MYPROCcreate)();
+typedef void(__cdecl* MYPROCdelete)(InterfacePlugin*);
 
 int main() {
-	std::string pluginsDirectory = "Myplugin/";
+	std::string pluginsDir = "Myplugin/";
 	std::vector<std::string> pluginFiles;
-	pluginFiles.push_back(pluginsDirectory + "PluginTest.dll");
-	pluginFiles.push_back(pluginsDirectory + "PluginMsgbox.dll");
+	pluginFiles.push_back(pluginsDir + "PluginTest.dll");
+	pluginFiles.push_back(pluginsDir + "PluginMsgbox.dll");
+
 	for (int i = 0; i < pluginFiles.size();i+=1) {
 		HMODULE MyPlugins = LoadLibraryA(pluginFiles[i].c_str());
 		if (!MyPlugins) {
-			std::cerr << "Error DLL: " << pluginFiles[i] << std::endl;
-			continue;
+			std::cout << "Error: "<< pluginFiles[i]<<" not loaded" << std::endl;
+			exit(1);
 		}
-		CreatePluginFunc CreatePlugin = nullptr;
-		if (pluginFiles[i] == pluginsDirectory + "PluginMsgbox.dll") {
-			CreatePluginFunc CreatePlugin = (CreatePluginFunc)GetProcAddress(MyPlugins, "CreatePluginMsgbox");
-		}
-		else if (pluginFiles[i] == pluginsDirectory + "PluginTest.dll") {
-			CreatePluginFunc CreatePlugin = (CreatePluginFunc)GetProcAddress(MyPlugins, "CreatePluginTest");
-		}
-		InterfacePlugin* Plugin = CreatePlugin();
+		MYPROCcreate Mycreate = (MYPROCcreate)GetProcAddress(MyPlugins, "CreatePlugin");
+		InterfacePlugin* Plugin = Mycreate();
 		if (!Plugin) {
-			std::cout << "Error: Plugin " << pluginFiles[i] << " not create" << std::endl;
-			continue;
+			std::cout << "Error: Plugin"<< pluginFiles[i] <<"not create" << std::endl;
+			FreeLibrary(MyPlugins);
+			return 1;
 		}
 		Plugin->InitPlugin();
 		Plugin->WorkPlugin();
 
-		DeletePluginFunc DeletePlugin = nullptr;
-		if (pluginFiles[i] == "PluginMsgbox.dll") {
-			DeletePluginFunc DeletePlugin = (DeletePluginFunc)GetProcAddress(MyPlugins, "DeletePluginMsgbox");
-		}
-		else if (pluginFiles[i] == "PluginTest.dll") {
-			DeletePluginFunc DeletePlugin = (DeletePluginFunc)GetProcAddress(MyPlugins, "DeletePluginTest");
-		}
-		DeletePlugin(Plugin);
+		MYPROCdelete Mydelete = (MYPROCdelete)GetProcAddress(MyPlugins, "DeletePlugin");
+		Mydelete(Plugin);
 	}
-
-	
 	return 0;
 }
