@@ -1,0 +1,57 @@
+#include <iostream>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <arpa/inet.h>
+
+
+#include "MyPlugin.h"
+
+class PluginTCP : public InterfacePlugin {
+    void InitPlugin() {
+        std::cout << "**************" << std::endl;
+        std::cout << "ScanerTCP:" << std::endl;
+        std::cout << "**************" << std::endl;
+    }
+    void WorkPlugin(int s, int e) {
+        const char* ip = "192.168.41.47";
+        sockaddr_in serverInfo;
+        memset(&serverInfo, 0, sizeof(serverInfo));
+        serverInfo.sin_family = AF_INET;
+
+        if (inet_pton(AF_INET, ip, &serverInfo.sin_addr) <= 0) {
+            std::cerr << "Invalid IP address: " << ip << std::endl;
+            exit(1);
+        }
+
+        const int startPort = s;
+        const int endPort = e;
+
+        for (int port = startPort; port <= endPort; ++port) {
+            int sock = socket(AF_INET, SOCK_STREAM, 0);
+
+            if (sock < 0) {
+                std::cerr << "Error initializing socket: " << strerror(errno) << std::endl;
+                exit(1);
+            }
+
+            serverInfo.sin_port = htons(port);
+            if (connect(sock, (sockaddr*) &serverInfo, sizeof(serverInfo))) {
+                std::cout << "Port " << port << " is open" << std::endl;
+            }
+            else {
+                std::cout << "Port " << port << " Error: " << strerror(errno) << std::endl;
+            }
+            shutdown(sock,2);
+        }
+    }
+};
+
+extern "C"  InterfacePlugin* CreatePlugin() {
+    return new PluginTCP();
+}
+
+extern "C"  void  DeletePlugin(InterfacePlugin* plugin) {
+    delete plugin;
+}
