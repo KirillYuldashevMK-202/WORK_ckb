@@ -151,10 +151,10 @@ int main() {
                 nameFileUnload.erase(0, 2);
                 std::ifstream FileUnload(nameFileUnload, std::ios::binary);
                 while (FileUnload.read(DataFileUnload, SIZEBUF) || FileUnload.gcount() > 0) {
-                    int bytesToSend = FileUnload.gcount();
+                    int bytesRead = FileUnload.gcount();
                     int bytesSent = 0;
-                    while (bytesSent < bytesToSend) {
-                        int sent = send(Client_status, DataFileUnload + bytesSent, bytesToSend - bytesSent, 0);
+                    while (bytesSent < bytesRead) {
+                        int sent = send(Client_status, DataFileUnload + bytesSent, bytesRead - bytesSent, 0);
                         if (sent == -1) {
                             FileUnload.close();
                             break;
