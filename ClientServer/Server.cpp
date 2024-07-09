@@ -6,6 +6,10 @@
 #include <sys/types.h>
 #include <string>
 #include <fstream>
+#include <vector>
+#include <filesystem>
+
+#define SIZEBUF 1024
 
 #pragma comment(lib,"Ws2_32.lib")
 
@@ -69,65 +73,107 @@ int main() {
         }
 
         else {
-            std::cout << "Client Hello!!!" << std::endl;
-            char buffer[1024] = { 0 };
-            memset(buffer, 0, 1024);
-            recv(Client_status, buffer, 1024, 0);
-            std::cout << buffer << std::endl;
+            std::cout << "Client connected" << std::endl;
+            //Буфер для сообщений между сервером и клиентом
+            char buffer[SIZEBUF] = { 0 };
+            memset(buffer, 0, SIZEBUF);
+            recv(Client_status, buffer, SIZEBUF, 0);//Считывание команды от клиента
             
             std::string command;
             std::string Filename;
             int startfilename = 0;
-            for (int i = 0; i < 1024; i += 1) {
+            for (int i = 0; i < SIZEBUF; i += 1) {
                 if (buffer[i] == ' ') {
                     startfilename = i + 1;
                     break;
                 }
                 command.push_back(buffer[i]);
             }
-            for (int i = startfilename; i < 1024; i += 1) {
+            for (int i = startfilename; i < SIZEBUF; i += 1) {
                 if (buffer[i] == ' ' || buffer[i] == '\0') {
                     break;
                 }
                 Filename.push_back(buffer[i]);
             }
 
-            if (command == "Upload") {
-                std::ofstream newFile(Filename, std::ios::binary);
+            //Модуль загрузки файла
+            if (command == "Upload"){
+                //Считывание информации и загрузка в файл
+                char DataFileUnload[SIZEBUF];
+                int bytesRead;
+                std::ofstream newFile(Filename);
                 if (!newFile.is_open()) {
-                    std::cout << "Error: open file upload" << std::endl;
-                    closesocket(Client_status);
-                    continue;
+                    std::cerr << "Failed to create file" << std::endl;
+                    return 1;
                 }
-
-                while (true) {
-                    int read;
-                    memset(buffer, 0, 1024);
-                    read = recv(Client_status, buffer, 1024, 0);
-                    if (read == SOCKET_ERROR) {
-                        std::cout << "Error: read file"<<std::endl;
-                        break;
-                    }
-                    if (read == 0) {
-                        std::cout << "File Unload "<<Filename<<std::endl;
-                        break;
-                    }
-                    newFile.write(buffer, read);
-                    break;
+                while ((bytesRead = recv(Client_status, DataFileUnload, SIZEBUF, 0)) > 0) {
+                    newFile.write(DataFileUnload, bytesRead);
                 }
                 newFile.close();
             }
+
+            //Модуль выгрузки файла
             else if (command == "Unload") {
-                
-            
-            }
-            else if(command == "Exit"){
-            
-            
-            
+                //Загрузка имен всех файлов в вектор
+                std::string path = ".";
+                std::vector <std::string> filename_vector;
+                for (auto& p : std::filesystem::directory_iterator(path)) {
+                    if (p.path().extension() == ".txt") {
+                        filename_vector.push_back(p.path().string());
+                    }
+                }
+                //Преобразование вектора в строку и отправка клиенту
+                std::string filename_str = "File in server:\n";
+                for (const auto& name : filename_vector) {
+                    filename_str += name + '\n';
+                }
+                send(Client_status, filename_str.c_str(), filename_str.size(), 0);
+                //Поиск нужного файла для выгрузки и отправка клиенту результата поиска
+                std::string nameFileUnload;
+                memset(buffer, 0, SIZEBUF);
+                recv(Client_status, buffer, SIZEBUF, 0);
+                nameFileUnload = (std::string) buffer;
+                int seacrhfile = -1;
+                for (int k = 0; k < filename_vector.size(); k += 1) {
+                    if(filename_vector[k] == nameFileUnload){
+                        seacrhfile = k;
+                    }
+                }
+                if (seacrhfile == -1) {
+                    send(Client_status, "File not directory", 19, 0);
+                    continue;
+                }
+                else {
+                    send(Client_status, "Unload............", 19, 0);
+                }
+                //Считывания и оправка информации клиенту
+                char DataFileUnload[SIZEBUF] = { 0 };
+                nameFileUnload.erase(0, 2);
+                std::ifstream FileUnload(nameFileUnload, std::ios::binary);
+                while (FileUnload.read(DataFileUnload, SIZEBUF) || FileUnload.gcount() > 0) {
+                    int bytesToSend = FileUnload.gcount();
+                    int bytesSent = 0;
+                    while (bytesSent < bytesToSend) {
+                        int sent = send(Client_status, DataFileUnload + bytesSent, bytesToSend - bytesSent, 0);
+                        if (sent == -1) {
+                            FileUnload.close();
+                            break;
+                        }
+                        bytesSent += sent;
+                    }
+                }
+                shutdown(Client_status, 1);
             }
 
-        
+            //Модуль закрытия сервера
+            else if(command == "Exit"){
+                closesocket(Server);
+                WSACleanup();
+                break;
+            }
+
+            continue;
         }
     }
+    return 1;
 }
