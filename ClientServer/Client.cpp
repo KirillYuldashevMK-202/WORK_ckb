@@ -16,10 +16,10 @@ void UploadFile(SOCKET sock, const std::string file) {
     std::ifstream FileUpload(file, std::ios::binary);
     //Загрузка информации
     while (FileUpload.read(DataFileUpload, SIZEBUF) || FileUpload.gcount() > 0) {
-        int bytesToSend = FileUpload.gcount();
+        int bytesRead = FileUpload.gcount();
         int bytesSent = 0;
-        while (bytesSent < bytesToSend) {
-            int sent = send(sock, DataFileUpload + bytesSent, bytesToSend - bytesSent, 0);
+        while (bytesSent < bytesRead) {
+            int sent = send(sock, DataFileUpload + bytesSent, bytesRead - bytesSent, 0);
             if (sent == -1) {
                 FileUpload.close();
                 break;
