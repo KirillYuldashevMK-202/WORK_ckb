@@ -9,7 +9,7 @@
 #include <vector>
 #include <filesystem>
 
-#define SIZEBUF 1024
+#define SIZEBUF 4096
 
 #pragma comment(lib,"Ws2_32.lib")
 
@@ -99,9 +99,9 @@ int main() {
             //Модуль загрузки файла
             if (command == "Upload"){
                 //Считывание информации и загрузка в файл
-                char DataFileUnload[SIZEBUF];
+                char DataFileUnload[SIZEBUF] = { 0 };
                 int bytesRead;
-                std::ofstream newFile(Filename);
+                std::ofstream newFile(Filename, std::ios::binary);
                 if (!newFile.is_open()) {
                     std::cerr << "Failed to create file" << std::endl;
                     return 1;
@@ -162,6 +162,7 @@ int main() {
                         bytesSent += sent;
                     }
                 }
+                FileUnload.close();
                 shutdown(Client_status, 1);
             }
 
