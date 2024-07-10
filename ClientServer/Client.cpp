@@ -4,7 +4,7 @@
 #include <fstream>
 #include <string>
 
-#define SIZEBUF 1024
+#define SIZEBUF 4096
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -30,7 +30,7 @@ void UploadFile(SOCKET sock, const std::string file) {
     shutdown(sock, 1);
 }
 
-//Загрузка файла на сервер
+//Выгрузка файла с сервера
 void UnloadFile(SOCKET sock) {
     //Команда для сервера для загрузки
     std::string command = "Unload ";
@@ -56,10 +56,10 @@ void UnloadFile(SOCKET sock) {
     std::cout << Msgserver << std::endl;
 
     //Создание и запись информации с файла сервера
-    char DataFileUnload[SIZEBUF];
+    char DataFileUnload[SIZEBUF] = { 0 };
     int bytesRead;
     FileUnload.erase(0, 2);
-    std::ofstream newFile(FileUnload);
+    std::ofstream newFile(FileUnload, std::ios::binary);
     if (!newFile.is_open()) {
         std::cerr << "Failed to create file" << std::endl;
         return;
@@ -108,8 +108,8 @@ int main() {
 
     ServerInfo.sin_port = htons(27015);
     Status = connect(ServSock, (sockaddr*)&ServerInfo, sizeof(ServerInfo));
-    UploadFile(ServSock, "Test.txt");
-    //UnloadFile(ServSock);
+    //UploadFile(ServSock, "wert.txt");
+    UnloadFile(ServSock);
     //Exit(ServSock);
     closesocket(ServSock);
     WSACleanup();
