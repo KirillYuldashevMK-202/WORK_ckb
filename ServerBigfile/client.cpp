@@ -62,7 +62,7 @@ void UnloadFile(SOCKET sock) {
     char DataFileUnload[SIZEBUF] = { 0 };
     int bytesRead;
     FileUnload.erase(0, 2);
-    std::ofstream newFile(FileUnload, std::ios::binary);
+    std::ofstream newFile(FileUnload, std::ios::app);
     if (!newFile.is_open()) {
         std::cerr << "Failed to create file" << std::endl;
         return;
@@ -72,7 +72,10 @@ void UnloadFile(SOCKET sock) {
         std::string commandser = "Unload " + FileUnload + ' ' + std::to_string(block) + ' ';
         send(sock, commandser.c_str(), commandser.size(), 0);
         char MsgOK[3] = { 0 };
-        recv(sock, MsgOK, 3, 0);
+        recv(sock, MsgOK, 2, 0);
+        if (MsgOK[0] == 'E' && MsgOK[1] == 'R') {
+            break;
+        }
         bytesRead = recv(sock, DataFileUnload, SIZEBUF, 0);
         newFile.write(DataFileUnload, bytesRead);
         block += 1;
@@ -129,10 +132,18 @@ int main() {
     std::cout << "Enter action: ";
     std::getline(std::cin, Actions);
 
-
-    //UploadFile(ServSock, "pr1.txt");
-    UnloadFile(ServSock);
-    //Exit(ServSock);
+    if (Actions == "1") {
+        UploadFile(ServSock, "c2.txt");
+    }
+    else if (Actions == "2") {
+        UnloadFile(ServSock);
+    }
+    else if (Actions == "3") {
+        Exit(ServSock);
+    }
+    else {
+        std::cout << "Invalid action." << std::endl;
+    }
     closesocket(ServSock);
     WSACleanup();
     return 0;
