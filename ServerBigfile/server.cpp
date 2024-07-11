@@ -115,7 +115,9 @@ int main() {
                     else {
                         std::string command;
                         std::string Filename;
+                        std::string Blocks;
                         int startfilename = 0;
+                        int startnumblock = 0;
                         //Парсинг запроса клиента
                         for (int j = 0; j < bytesReceived; ++j) {
                             if (buffer[j] == ' ') {
@@ -126,9 +128,17 @@ int main() {
                         }
                         for (int j = startfilename; j < bytesReceived; ++j) {
                             if (buffer[j] == ' ' || buffer[j] == '\0') {
+                                startnumblock = j + 1;
                                 break;
                             }
                             Filename.push_back(buffer[j]);
+                        }
+                        for (int j = startnumblock; j < bytesReceived; ++j) {
+                            if (buffer[j] == ' ' || buffer[j] == '\0') {
+                                startnumblock = j + 1;
+                                break;
+                            }
+                            Blocks.push_back(buffer[j]);
                         }
                         //Модуль загрузки файла
                         if (command == "Upload") {
@@ -147,7 +157,7 @@ int main() {
                             newFile.close();
                         }
                         //Модуль выгрузки файла
-                        else if (command == "Unload") {
+                        else if (command == "ReadDir") {
                             //Загрузка имен всех файлов в вектор
                             std::string path = ".";
                             std::vector<std::string> filename_vector;
@@ -176,27 +186,28 @@ int main() {
                             if (searchfile == -1) {
                                 send(i, "File not found", 14, 0);
                             }
-                            //Считывания и оправка информации клиенту
                             else {
                                 send(i, "Unload............", 19, 0);
-                                char DataFileUnload[SIZEBUF] = { 0 };
-                                nameFileUnload.erase(0, 2);
-                                std::ifstream FileUnload(nameFileUnload, std::ios::binary);
-                                while (FileUnload.read(DataFileUnload, SIZEBUF) || FileUnload.gcount() > 0) {
-                                    int bytesRead = FileUnload.gcount();
-                                    int bytesSent = 0;
-                                    while (bytesSent < bytesRead) {
-                                        int sent = send(i, DataFileUnload + bytesSent, bytesRead - bytesSent, 0);
-                                        if (sent == -1) {
-                                            FileUnload.close();
-                                            break;
-                                        }
-                                        bytesSent += sent;
-                                    }
-                                }
-                                FileUnload.close();
-                                shutdown(i, SD_SEND);
                             }
+                        }
+                        else if (command == "Unload") {
+                            char DataFileUnload[SIZEBUF] = { 0 };
+                            std::ifstream FileUnload(Filename, std::ios::binary);
+                            FileUnload.seekg(std::stoi(Blocks) * SIZEBUF);
+                            if(FileUnload.read(DataFileUnload, SIZEBUF) || FileUnload.gcount() > 0) {
+                                int bytesRead = FileUnload.gcount();
+                                int bytesSent = 0;
+                                while (bytesSent < bytesRead) {
+                                    int sent = send(i, DataFileUnload + bytesSent, bytesRead - bytesSent, 0);
+                                    if (sent == -1) {
+                                        FileUnload.close();
+                                        break;
+                                    }
+                                    bytesSent += sent;
+                                }
+                            }
+                            send(i, "OK", 3, 0);
+                            FileUnload.close();
                         }
                         //Модуль закрытия сервера
                         else if (command == "Exit") {
