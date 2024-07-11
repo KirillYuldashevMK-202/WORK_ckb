@@ -34,7 +34,7 @@ void UploadFile(SOCKET sock, const std::string file) {
 //Выгрузка файла с сервера
 void UnloadFile(SOCKET sock) {
     //Команда для сервера для загрузки
-    std::string command = "Unload ";
+    std::string command = "ReadDir ";
     send(sock, command.c_str(), command.size(), 0);
 
     //Буфер для сообщений между сервером и клиентом
@@ -56,6 +56,8 @@ void UnloadFile(SOCKET sock) {
     recv(sock, Msgserver, SIZEBUF, 0);
     std::cout << Msgserver << std::endl;
 
+    std::string commandser = "Unload "+ FileUnload;
+
     //Создание и запись информации с файла сервера
     char DataFileUnload[SIZEBUF] = { 0 };
     int bytesRead;
@@ -65,9 +67,17 @@ void UnloadFile(SOCKET sock) {
         std::cerr << "Failed to create file" << std::endl;
         return;
     }
-    while ((bytesRead = recv(sock, DataFileUnload, SIZEBUF, 0)) > 0) {
+    int block = 0;
+    while (true) {
+        std::string commandser = "Unload " + FileUnload + ' ' + std::to_string(block) + ' ';
+        send(sock, commandser.c_str(), commandser.size(), 0);
+        char MsgOK[3] = { 0 };
+        recv(sock, MsgOK, 3, 0);
+        bytesRead = recv(sock, DataFileUnload, SIZEBUF, 0);
         newFile.write(DataFileUnload, bytesRead);
+        block += 1;
     }
+    shutdown(sock, 1);
     newFile.close();
 }
 
@@ -120,8 +130,8 @@ int main() {
     std::getline(std::cin, Actions);
 
 
-    UploadFile(ServSock, "pr1.txt");
-    //UnloadFile(ServSock);
+    //UploadFile(ServSock, "pr1.txt");
+    UnloadFile(ServSock);
     //Exit(ServSock);
     closesocket(ServSock);
     WSACleanup();
