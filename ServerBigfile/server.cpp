@@ -191,10 +191,12 @@ int main() {
                             }
                         }
                         else if (command == "Unload") {
+                           
                             char DataFileUnload[SIZEBUF] = { 0 };
                             std::ifstream FileUnload(Filename, std::ios::binary);
                             FileUnload.seekg(std::stoi(Blocks) * SIZEBUF);
                             if(FileUnload.read(DataFileUnload, SIZEBUF) || FileUnload.gcount() > 0) {
+                                send(i, "OK", 2, 0);
                                 int bytesRead = FileUnload.gcount();
                                 int bytesSent = 0;
                                 while (bytesSent < bytesRead) {
@@ -206,7 +208,9 @@ int main() {
                                     bytesSent += sent;
                                 }
                             }
-                            send(i, "OK", 3, 0);
+                            else {
+                                send(i, "ER", 2, 0);
+                            }
                             FileUnload.close();
                         }
                         //Модуль закрытия сервера
