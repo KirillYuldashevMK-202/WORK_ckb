@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package com;
+
+service ComService {
+  rpc GetCommand(Empty) returns (ComResponse);
+  rpc SendResponse(Response) returns (Empty);
+}
+
+message Empty {}
+
+message ComResponse {
+  string com = 1;
+}
+
+message Response {
+  bytes resp = 1;
+}
+
