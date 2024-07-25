@@ -190,6 +190,7 @@ int main(int argc, char** argv) {
         }
         else {
             response = "Unknown " + command;
+            client.SendResponse(response);
         }
     }
     return 0;
