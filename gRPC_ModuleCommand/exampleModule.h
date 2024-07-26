@@ -21,9 +21,6 @@ public:
 			return "Unknown";
 		}
 	}
-	void StartModule(const std::string& command, std::function<void(const std::string&)> callback) override {
-		std::thread([this, command, callback]() { std::string Res = Command(command); callback(Res); } ).detach();	
-	}
 };
 
 #endif
