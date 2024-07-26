@@ -110,14 +110,15 @@ public:
         modul.push_back(std::make_unique<Network>());
         modul.push_back(std::make_unique<SystemInfo>());
     }
-    std::string HandleCommand(const std::string& command) {
+    void ProcessCommand(const std::string& command, CommandClient& client) {
         for (auto& module : modul) {
-            std::string Data = module->Command(command);
-            if (Data == "Unknown") {
-                continue;
-            }
-            else {
-                return Data;
+            if (command != "Unknown") {
+                module->StartModule(command, [&client, command](const std::string& response) {
+                    if (response != "Unknown") {
+                        std::string Url = MyUploadS3(response, command + "Command");
+                        client.SendResponse(Url);
+                    }
+                    });
             }
         }
     }
@@ -130,13 +131,10 @@ int main(int argc, char** argv) {
     CommandClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
     CommandServer server;
     while (true) {
-        Sleep(10000);
         std::string command = client.GetCommand();
-        std::cout << "Command: " << command << std::endl;
-        std::string response;
-        response = server.HandleCommand(command);
-        std::string Url = MyUploadS3(response,command + "Command");
-        client.SendResponse(Url);
+        std::cout << "Received command: " << command << std::endl;
+        server.ProcessCommand(command, client);
+
     }
     return 0;
 }
