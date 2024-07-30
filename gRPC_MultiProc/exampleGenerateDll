@@ -1,0 +1,39 @@
+#include <filesystem>
+#include <thread>
+#include <string>
+#include <iostream>
+#include <Windows.h>
+
+#include "MyPLugin.h"
+
+class Files : public Module1 {
+public:
+	void Command(char* Data, DWORD* size) override {
+		std::string namesFiles;
+		std::string path = "C:/Users/Kirill";
+		for (const auto& entry : std::filesystem::directory_iterator(path)) {
+			namesFiles += entry.path().string().erase(0, 15) + "\n";
+		}
+        if (Data == nullptr) {
+            *size = namesFiles.size();
+        }
+        else {
+            if (*size >= namesFiles.size()) {
+                std::copy(namesFiles.begin(), namesFiles.end(), Data);
+                Data[namesFiles.size()] = '\0';
+                *size = namesFiles.size();
+            }
+            else {
+                *size = namesFiles.size();
+            }
+        }
+	}
+};
+
+extern "C" __declspec(dllexport) Module1* __cdecl CreatePlugin() {
+	return new Files();
+}
+
+extern "C" __declspec(dllexport) void __cdecl DeletePlugin(Module1* plugin) {
+	delete plugin;
+}
