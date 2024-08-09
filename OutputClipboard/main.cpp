@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <iostream>
-#include <vector>
 #include <string>
+#include <vector>
 
 std::string GetData() {
     IsClipboardFormatAvailable(CF_UNICODETEXT);
@@ -23,23 +23,6 @@ std::string GetData() {
     return strReturn;
 }
 
-LRESULT CALLBACK Clipboard(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    switch (uMsg) {
-    case WM_CREATE:
-        AddClipboardFormatListener(hwnd);
-        break;
-    case WM_CLIPBOARDUPDATE:
-        GetData();
-        break;
-    case WM_DESTROY:
-        RemoveClipboardFormatListener(hwnd);
-        break;
-    default:
-        return DefWindowProc(hwnd, uMsg, wParam, lParam);
-    }
-    return 0;
-}
-
 std::string getTime() {
     time_t now = time(nullptr);
     tm localTime;
@@ -54,7 +37,33 @@ std::string getTime() {
     return nameFile;
 }
 
-int main() {
+LRESULT CALLBACK Clipboard(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    static std::string MainHistory;
+
+    switch (uMsg) {
+    case WM_CREATE:
+        AddClipboardFormatListener(hwnd);
+        break;
+    case WM_CLIPBOARDUPDATE: {
+        std::string Time = getTime();
+        std::string Data = GetData();
+        MainHistory += Time + " : " + Data + "\r\n";
+
+        HWND TextWindow = GetDlgItem(hwnd, 1);
+        SetWindowTextA(TextWindow, MainHistory.c_str());
+        break;
+    }
+    case WM_DESTROY:
+        RemoveClipboardFormatListener(hwnd);
+        PostQuitMessage(0);
+        break;
+    default:
+        return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+    return 0;
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     setlocale(LC_ALL, "Russian");
     WNDCLASS WND = { 0 };
     WND.lpfnWndProc = Clipboard;
@@ -62,19 +71,21 @@ int main() {
     WND.lpszClassName = L"ClipboardListener";
 
     RegisterClass(&WND);
-      
-    HWND hwnd = CreateWindowEx(0, WND.lpszClassName, L"Clipboard History", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, GetModuleHandleA(nullptr), nullptr);
+
+    HWND hwnd = CreateWindowEx(0, WND.lpszClassName, L"Clipboard History", WS_OVERLAPPEDWINDOW,CW_USEDEFAULT, CW_USEDEFAULT, 500, 900, nullptr, nullptr, GetModuleHandleA(nullptr), nullptr);
     if (hwnd == nullptr) {
         return 1;
     }
 
+    HWND TextWindow = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", nullptr, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY, 0, 0, 500, 900, hwnd, (HMENU)1, hInstance, nullptr);
+
+    ShowWindow(hwnd, nCmdShow);
+    UpdateWindow(hwnd);
+
     MSG msg = { 0 };
-    std::cout << "History buffer:" << std::endl;
     while (GetMessage(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
-        std::cout << getTime() << " : ";
-        std::cout << GetData() << std::endl;
     }
 
     return 0;
