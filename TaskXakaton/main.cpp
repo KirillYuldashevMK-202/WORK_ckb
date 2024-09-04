@@ -2,7 +2,9 @@
 #include "MinIO.hpp"
 #include "Postgre.hpp"
 #include "Macros.hpp"
+#include "Backend.hpp"
 #include <thread>
+#include <sstream>
 
 void DownloadFile(Agent& MainAgent, WorkDB& MainDB, const std::string& IDuser, const std::string& nameFile) {
     int ErrDB = MainDB.AddFilesUsers(IDuser.c_str(), nameFile.c_str());
@@ -25,24 +27,36 @@ void DownloadFile(Agent& MainAgent, WorkDB& MainDB, const std::string& IDuser, c
 }
 
 int main() {
-    // Подключение к серверу
+    // РџРѕРґРєР»СЋС‡РµРЅРёРµ Рє СЃРµСЂРІРµСЂСѓ
     Agent MainAgent("192.168.44.137", 22, "agent");
     if (MainAgent.ConnectUbuntuServer_ssh("qwerty123") == ERROR) {
         std::cout << MainAgent.ErrorMsg << std::endl;
         exit(1);
     }
 
-    // Подключение к базе данных
+    // РџРѕРґРєР»СЋС‡РµРЅРёРµ Рє Р±Р°Р·Рµ РґР°РЅРЅС‹С…
     WorkDB MainDB("127.0.0.1", "5050", "postgres", "postgres", "qwerty123");
 
+    // РџРѕРґРєР»СЋС‡РµРЅРёРµ Рє Р±СЌРєРµРЅРґСѓ (РїРѕ СЃРѕРєРµС‚Сѓ)
+    SOCKET Backend = ConnectBackend();
+
     while (true) {
-        std::cout << "Command: ";
-        std::string ReceivingRequest;
-        std::getline(std::cin, ReceivingRequest);
-        if (ReceivingRequest == "Connect user") {
-            std::cout << "ID users connect: ";
-            std::string IDuser;
-            std::cin >> IDuser;
+        std::string CommandBackend = recvBackend(Backend);
+        
+        if (CommandBackend == "") {
+            continue;
+        }
+
+        std::stringstream ss(CommandBackend);
+        std::string line;
+        std::vector<std::string> linesBackend;
+        while (std::getline(ss, line, '\n')) {
+            linesBackend.push_back(line);
+            std::cout << line<<std::endl;
+        }
+
+        if (linesBackend[0] == "CreateFolder") {
+            std::string IDuser = linesBackend[1];
             if (MainAgent.ExecCommand("ls storagefileusers") == ERROR) {
                 std::cout << MainAgent.ErrorMsg << std::endl;
                 continue;
@@ -56,40 +70,28 @@ int main() {
             }
         }
 
-        if (ReceivingRequest == "Download file") {
-            std::cout << "ID users: ";
-            std::string IDuser;
-            std::cin >> IDuser;
-
-            std::cout << "Name file " + IDuser + ": ";
-            std::string nameFile;
-            std::cin >> nameFile;
-
+        if (linesBackend[0] == "DownloadFile") {
+            std::string IDuser = linesBackend[1];
+            std::string nameFile = linesBackend[2];
+    
             std::thread downloadThread(DownloadFile, std::ref(MainAgent), std::ref(MainDB), IDuser, nameFile);
             downloadThread.detach();
         }
 
-        if (ReceivingRequest == "Delete file") {
-            std::cout << "ID users: ";
-            std::string IDuser;
-            std::cin >> IDuser;
-
-            std::cout << "Name file " + IDuser + ": ";
-            std::string nameFile;
-            std::cin >> nameFile;
+        if (linesBackend[0] == "DeleteFile") {
+            std::string IDuser = linesBackend[1];
+            std::string nameFile = linesBackend[2];
 
             std::string ReqDel = "rm storagefileusers/" + IDuser + "/" + nameFile;
             MainAgent.ExecCommand(ReqDel.c_str());
-            
-            if(MainDB.DeleteFilesUsers(IDuser.c_str(), nameFile.c_str()) == ERROR) {
+
+            if (MainDB.DeleteFilesUsers(IDuser.c_str(), nameFile.c_str()) == ERROR) {
                 std::cout << MainDB.ErrorMsg << std::endl;
             }
         }
 
-        if (ReceivingRequest == "Delete user") {
-            std::cout << "ID users: ";
-            std::string IDuser;
-            std::cin >> IDuser;
+        if (linesBackend[0] == "DeleteUser") {
+            std::string IDuser = linesBackend[1];
 
             std::string ReqDel = "rm -r storagefileusers/" + IDuser;
             MainAgent.ExecCommand(ReqDel.c_str());
@@ -98,5 +100,6 @@ int main() {
             }
         }
     }
+    
     return 0;
 }
